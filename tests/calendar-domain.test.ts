@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CreateEventSchema, UpdateEventSchema, eventFingerprint } from "../src/domain/calendar.js";
+import { CreateEventSchema, UpdateEventSchema, eventFingerprint } from "../src/mcps/google-calendar/domain/calendar.js";
 
 describe("calendar event validation", () => {
   it("accepts an all-day event with an exclusive end date", () => {
@@ -42,4 +42,3 @@ describe("calendar event validation", () => {
       .toBe(eventFingerprint({ ...base, summary: "fiesta final", location: "aula 1" }));
   });
 });
-

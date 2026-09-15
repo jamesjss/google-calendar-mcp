@@ -1,54 +1,72 @@
 # Arquitectura
 
-## Decisiones principales
+## Plataforma multi-MCP
 
-El servidor usa una arquitectura hexagonal pequeña. El dominio valida eventos y calcula huellas de duplicado sin depender de Google ni de MCP. `CalendarService` resuelve calendarios y coordina los casos de uso contra el puerto `CalendarGateway`. Google Calendar y MCP son adaptadores reemplazables.
+El proyecto es un único Cloudflare Worker con varias rutas MCP protegidas. Cada integración ocupa `src/mcps/<slug>` y se publica en `/mcp/<slug>`. El registro central define la identidad pública de cada servidor:
 
 ```text
 ChatGPT web
-  │ OAuth 2.1 + MCP Streamable HTTP
+  │ MCP + OAuth 2.1
   ▼
-Express ── OAuth bridge ── SQLite (tokens Google cifrados)
-  │
-  ▼
-MCP tools ── CalendarService ── CalendarGateway ── Google Calendar API
-                 │
-                 └── validación, Europe/Madrid y duplicados
+Cloudflare Worker
+  ├── /mcp/google-calendar ── CalendarService ── Google Calendar REST API
+  ├── /mcp/<futuro>          ── herramientas propias ── API propia
+  ├── Workers OAuth Provider ── KV (clientes, grants y tokens MCP)
+  └── OAuth Google           ── D1 (credenciales Google cifradas)
 ```
 
-## Dos dominios OAuth separados
+El enrutado protegido se configura con `apiHandlers`: cada ruta recibe únicamente su servidor. Los tokens incluyen `mcpSlug` y los scopes de esa integración; el servidor vuelve a comprobarlos al ejecutar herramientas. De este modo, añadir un MCP no concede acceso implícito a los demás.
 
-1. ChatGPT descubre `/.well-known/oauth-protected-resource` y `/.well-known/oauth-authorization-server`, registra un cliente público mediante DCR y usa Authorization Code + PKCE S256.
-2. `/oauth/authorize` redirige a Google. El servidor solicita acceso offline y guarda las credenciales Google cifradas con AES-256-GCM.
-3. El callback emite un código MCP de un solo uso. `/oauth/token` entrega un JWT de 15 minutos y un refresh token opaco, también de un solo uso por rotación.
-4. Cada llamada a `/mcp` valida audiencia, emisor, caducidad y scopes del JWT antes de cargar la cuenta Google asociada.
+## Capas
 
-ChatGPT nunca recibe el token de Google y Google nunca recibe el token MCP.
+- `platform`: infraestructura reutilizable (registro, OAuth, Web Crypto, KV/D1 y tipos del Worker).
+- `mcps/google-calendar/domain`: fechas, modelos y huella normalizada de duplicados.
+- `mcps/google-calendar/application`: casos de uso independientes de Google y MCP.
+- `google-calendar-gateway`: adaptador HTTP a Calendar API v3, con renovación de tokens.
+- `tools` y `server`: contrato MCP y composición por petición.
 
-## Scopes mínimos
+El servidor MCP es stateless: se crea por petición y puede ejecutarse en cualquier ubicación de Cloudflare. No hay proceso permanente ni contenedor.
 
-- `openid email`: identidad estable y aplicación de `ALLOWED_GOOGLE_EMAILS`.
-- `https://www.googleapis.com/auth/calendar.events`: leer y modificar eventos, sin permisos para cambiar calendarios, ACL o suscripciones.
-- `https://www.googleapis.com/auth/calendar.calendarlist.readonly`: listar IDs y nombres, necesario para calendarios secundarios como **Familiar**.
+## OAuth y almacenamiento
 
-Google recomienda elegir el scope más limitado posible y define precisamente esos permisos en su [documentación de scopes de Calendar](https://developers.google.com/workspace/calendar/api/auth).
+Hay dos relaciones separadas:
 
-## Fechas y zona horaria
+1. ChatGPT usa Authorization Code + PKCE contra el Workers OAuth Provider. El proveedor guarda en KV los clientes dinámicos, grants, access tokens y refresh tokens rotatorios.
+2. El usuario ve una pantalla de consentimiento propia protegida con CSRF y después autoriza Google. El callback guarda los tokens Google cifrados con AES-256-GCM en D1.
 
-- Todo el día: solo `{ "date": "YYYY-MM-DD" }`. `end.date` es exclusivo: un evento del 21 de junio usa fin `2027-06-22`.
-- Con hora: solo `{ "dateTime": "...+01:00|+02:00", "timeZone": "Europe/Madrid" }`.
-- El offset debe coincidir con `Europe/Madrid` en ese instante, por lo que se validan los cambios CET/CEST.
-- No se admite mezclar `date` y `dateTime`, ni actualizar solo uno de los límites.
+ChatGPT nunca recibe credenciales Google. D1 solo guarda ciphertext; la clave vive como secreto `TOKEN_ENCRYPTION_KEY`. Los handoffs de autorización son cifrados, caducan a los diez minutos y se consumen una sola vez mediante `DELETE ... RETURNING`.
 
-## Calendarios secundarios
+## Permisos mínimos
 
-Las herramientas aceptan `calendar.id` o `calendar.name`. El ID es preferente e inmutable. El nombre se compara de manera exacta ignorando mayúsculas; si dos calendarios tienen el mismo nombre, la operación se detiene y pide el ID. Sin selector se usa `primary`.
+Scopes MCP:
 
-## Duplicados y concurrencia
+- `google-calendar.read`
+- `google-calendar.write`
 
-Antes de crear, se consultan eventos solapados y se compara SHA-256 de título, inicio, fin y ubicación normalizados. Una coincidencia se rechaza salvo `duplicatePolicy: "allow"`. Las lecturas devuelven el ETag de Google; update/delete aceptan `etag` y convierten un `412 Precondition Failed` en un conflicto legible.
+Scopes Google:
 
-## Límites operativos
+- `openid email`, para identificar y limitar la cuenta.
+- `calendar.events`, para leer y modificar eventos sin administrar calendarios o ACL.
+- `calendar.calendarlist.readonly`, para localizar calendarios secundarios como **Familiar**.
 
-SQLite y el transporte sin estado hacen adecuada una sola instancia con volumen persistente. No se deben levantar varias réplicas contra el mismo archivo. Para alta disponibilidad, sustituir `Store` por PostgreSQL/Redis con consumo transaccional de códigos y refresh tokens.
+`ALLOWED_GOOGLE_EMAILS` debe contener la cuenta autorizada en un despliegue personal.
 
+## Fechas, duplicados y concurrencia
+
+- Todo el día usa exclusivamente `start.date` y `end.date`; el final es exclusivo.
+- Con hora usa `dateTime`, offset explícito y `Europe/Madrid`. Se valida CET/CEST para el instante concreto.
+- No se permite mezclar `date` y `dateTime` ni actualizar un solo límite.
+- Antes de crear se comparan título, inicio, fin y ubicación normalizados con los eventos del intervalo. Se puede aceptar un duplicado solo con `duplicatePolicy: "allow"`.
+- Las lecturas conservan el ETag de Google; update/delete envían `If-Match` cuando se aporta.
+- Todas las escrituras usan `sendUpdates=none`: no se añaden invitados ni se envían avisos.
+
+## Añadir un MCP
+
+1. Elige un slug estable, corto y sin datos de usuario.
+2. Crea `src/mcps/<slug>/` con su servidor y adaptadores.
+3. Añade ruta y scopes específicos a `MCP_REGISTRY`.
+4. Añade un handler con la misma ruta a `apiHandlers` en `src/worker.ts`.
+5. Haz que sus credenciales se identifiquen por proveedor/usuario y, si comparte tablas, por `mcp_slug`.
+6. Añade pruebas de coincidencia exacta, aislamiento de scopes y herramientas.
+
+Un dominio personalizado puede sustituir `workers.dev` sin alterar `/mcp/<slug>`; en ChatGPT se crea una nueva conexión para la nueva URL.

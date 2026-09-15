@@ -1,29 +1,9 @@
 node_modules/
 dist/
 .env
+.dev.vars
+.wrangler/
 data/
 coverage/
 *.log
 .DS_Store
-
-# Public HTTPS origin, without a trailing slash.
-PUBLIC_BASE_URL=https://calendar-mcp.example.com
-PORT=3000
-DEFAULT_TIME_ZONE=Europe/Madrid
-
-# Google Cloud OAuth 2.0 Web application credentials.
-GOOGLE_CLIENT_ID=replace-me.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=replace-me
-
-# Generate both with: openssl rand -base64 32
-TOKEN_ENCRYPTION_KEY=replace-with-32-byte-base64-key
-JWT_SECRET=replace-with-at-least-32-random-bytes
-
-DATABASE_PATH=./data/calendar-mcp.sqlite
-ACCESS_TOKEN_TTL_SECONDS=900
-REFRESH_TOKEN_TTL_DAYS=30
-OAUTH_STATE_TTL_SECONDS=600
-
-# Optional comma-separated allowlist. Empty accepts DCR redirect URIs that are
-# HTTPS, plus loopback HTTP URIs used by local MCP clients.
-ALLOWED_REDIRECT_ORIGINS=

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { CalendarGateway, ListEventsQuery } from "../src/application/calendar-port.js";
-import { CalendarService } from "../src/application/calendar-service.js";
-import type { CalendarEvent, CalendarInfo } from "../src/domain/calendar.js";
+import type { CalendarGateway, ListEventsQuery } from "../src/mcps/google-calendar/application/calendar-port.js";
+import { CalendarService } from "../src/mcps/google-calendar/application/calendar-service.js";
+import type { CalendarEvent, CalendarInfo } from "../src/mcps/google-calendar/domain/calendar.js";
 
 class MemoryGateway implements CalendarGateway {
   calendars: CalendarInfo[] = [
@@ -49,4 +49,3 @@ describe("CalendarService", () => {
     })).resolves.toMatchObject({ id: "new", calendarId: "family-id" });
   });
 });
-

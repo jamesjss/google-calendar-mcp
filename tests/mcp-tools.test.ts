@@ -1,11 +1,10 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
-import type { CalendarGateway, ListEventsQuery } from "../src/application/calendar-port.js";
-import { CalendarService } from "../src/application/calendar-service.js";
-import type { CalendarEvent } from "../src/domain/calendar.js";
-import { registerCalendarTools } from "../src/mcp/tools.js";
+import type { CalendarGateway, ListEventsQuery } from "../src/mcps/google-calendar/application/calendar-port.js";
+import { CalendarService } from "../src/mcps/google-calendar/application/calendar-service.js";
+import type { CalendarEvent } from "../src/mcps/google-calendar/domain/calendar.js";
+import { registerCalendarTools } from "../src/mcps/google-calendar/tools.js";
 
 const gateway: CalendarGateway = {
   listCalendars: async () => [{ id: "family-id", summary: "Familiar", primary: false, accessRole: "owner" }],
@@ -16,9 +15,9 @@ const gateway: CalendarGateway = {
   deleteEvent: async () => undefined,
 };
 
-async function connected(scope = "calendar.read calendar.write") {
+async function connected(scopes = ["google-calendar.read", "google-calendar.write"]) {
   const server = new McpServer({ name: "test", version: "1" });
-  registerCalendarTools(server, new CalendarService(gateway), scope);
+  registerCalendarTools(server, new CalendarService(gateway), scopes);
   const client = new Client({ name: "test-client", version: "1" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -46,7 +45,7 @@ describe("MCP tools", () => {
   });
 
   it("enforces the granted OAuth scope at execution time", async () => {
-    const { client, server } = await connected("calendar.read");
+    const { client, server } = await connected(["google-calendar.read"]);
     const response = await client.callTool({ name: "delete_event", arguments: { eventId: "e1" } });
     expect(response.isError).toBe(true);
     await client.close(); await server.close();

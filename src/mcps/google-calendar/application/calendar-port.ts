@@ -1,12 +1,6 @@
 import type { CalendarEvent, CalendarInfo } from "../domain/calendar.js";
 
-export interface ListEventsQuery {
-  timeMin: string;
-  timeMax: string;
-  query?: string;
-  maxResults?: number;
-}
-
+export interface ListEventsQuery { timeMin: string; timeMax: string; query?: string; maxResults?: number }
 export interface CalendarGateway {
   listCalendars(): Promise<CalendarInfo[]>;
   listEvents(calendarId: string, query: ListEventsQuery): Promise<CalendarEvent[]>;
@@ -15,4 +9,3 @@ export interface CalendarGateway {
   updateEvent(calendarId: string, eventId: string, patch: Partial<CalendarEvent>, etag?: string): Promise<CalendarEvent>;
   deleteEvent(calendarId: string, eventId: string, etag?: string): Promise<void>;
 }
-

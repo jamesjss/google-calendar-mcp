@@ -1,17 +1,18 @@
-# Google Calendar MCP para ChatGPT web
+# Plataforma MCP personal en Cloudflare
 
-Servidor MCP remoto, pequeño y autoalojable, para gestionar Google Calendar desde ChatGPT web. Soporta calendarios secundarios como **Familiar**, eventos de todo el día correctos, eventos con hora en `Europe/Madrid`, prevención de duplicados y OAuth extremo a extremo.
+Worker remoto para conectar servicios propios con ChatGPT web. La primera integración es Google Calendar y vive en una ruta estable:
 
-## Funcionalidad
+```text
+https://TU-WORKER.workers.dev/mcp/google-calendar
+```
 
-- `list_calendars`: lista IDs, nombres, permisos y zona horaria.
-- `list_events`: busca eventos dentro de un rango.
-- `get_event`: obtiene un evento y su ETag.
-- `create_event`: crea eventos y rechaza duplicados exactos por defecto.
-- `update_event`: modifica campos con control de concurrencia opcional por ETag.
-- `delete_event`: borra un evento con control de concurrencia opcional.
+La base está preparada para incorporar más servidores como rutas hermanas (`/mcp/notion`, `/mcp/home-assistant`, etc.) sin mezclar herramientas, scopes ni credenciales.
 
-Un día completo se expresa así:
+## Google Calendar
+
+Expone seis herramientas: `list_calendars`, `list_events`, `get_event`, `create_event`, `update_event` y `delete_event`. Admite calendarios secundarios por ID o por nombre exacto —incluido **Familiar**—, ETags para evitar sobrescrituras y detección de duplicados exactos.
+
+Evento de todo el día (el final siempre es exclusivo):
 
 ```json
 {
@@ -22,7 +23,7 @@ Un día completo se expresa así:
 }
 ```
 
-Un evento con hora se expresa así:
+Evento con hora:
 
 ```json
 {
@@ -33,30 +34,18 @@ Un evento con hora se expresa así:
 }
 ```
 
-## Inicio rápido de desarrollo
+## Desarrollo local
 
-Requisitos: Node.js 22 y un proyecto OAuth Web de Google.
+Requisitos: Node.js 22 y Wrangler.
 
 ```bash
-cp .env.example .env
 npm ci
-npm test
+cp .dev.vars.example .dev.vars
+npm run db:migrate:local
 npm run dev
 ```
 
-Rellena `.env` antes de arrancar. Para instrucciones completas consulta [Despliegue](docs/DEPLOYMENT.md); el razonamiento de seguridad y diseño está en [Arquitectura](docs/ARCHITECTURE.md).
-
-## Seguridad por defecto
-
-- Google concede solo acceso a eventos y lectura de la lista de calendarios; no se solicitan permisos de ACL ni de administración de calendarios.
-- Las credenciales Google se cifran con AES-256-GCM antes de entrar en SQLite.
-- OAuth MCP usa PKCE S256, códigos de un solo uso, JWT breves y refresh tokens rotatorios.
-- En producción se exige HTTPS y una lista de orígenes OAuth permitidos.
-- El proceso escucha solo en localhost salvo que el despliegue configure `HOST=0.0.0.0` explícitamente.
-- `ALLOWED_GOOGLE_EMAILS` permite limitar el servidor a una cuenta concreta.
-- Las operaciones de Google usan `sendUpdates=none`; este proyecto no añade invitados ni envía notificaciones.
-
-## Comprobaciones
+Comprobaciones sin credenciales reales:
 
 ```bash
 npm run typecheck
@@ -64,19 +53,19 @@ npm test
 npm run build
 ```
 
-La suite no necesita credenciales reales: usa dobles de prueba para Google y transporte MCP en memoria. La validación manual final sí requiere desplegar, autorizar tu cuenta Google y crear un evento de prueba.
+`npm run build` genera un paquete Worker mediante un despliegue en seco; no publica nada.
 
-## Estructura
+## Estructura extensible
 
 ```text
-src/domain          reglas de fechas, modelos y huellas de duplicado
-src/application     casos de uso y puerto CalendarGateway
-src/adapters        adaptador Google Calendar
-src/auth            OAuth MCP ↔ Google y tokens de sesión
-src/infrastructure  SQLite y cifrado
-src/mcp             herramientas y transporte MCP HTTP
-tests               pruebas unitarias y de integración
-docs                arquitectura, despliegue y plan
+src/worker.ts                         composición y rutas protegidas
+src/platform/                         OAuth, D1, cifrado y registro de MCPs
+src/mcps/google-calendar/             dominio, herramientas y adaptador Google
+migrations/                           esquema compartido de D1
+tests/                                pruebas de dominio, herramientas y HTTP
+docs/                                 arquitectura, despliegue y planes
 ```
 
-Licencia pendiente de decisión del propietario; el proyecto se entrega como código privado por defecto.
+Para añadir otro MCP, crea `src/mcps/<slug>/`, registra su ruta y scopes en `src/platform/mcp-registry.ts`, crea su handler en `src/worker.ts` y añade la documentación y pruebas correspondientes. El slug publicado se considera estable.
+
+Consulta [Arquitectura](docs/ARCHITECTURE.md) y [Despliegue](docs/DEPLOYMENT.md) para el detalle completo.

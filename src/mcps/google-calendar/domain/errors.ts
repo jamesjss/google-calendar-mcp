@@ -14,4 +14,3 @@ export function asSafeError(error: unknown): AppError {
   if (error instanceof AppError) return error;
   return new AppError("Unexpected server error", "INTERNAL_ERROR", 500);
 }
-
