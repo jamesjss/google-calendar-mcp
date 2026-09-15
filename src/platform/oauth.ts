@@ -1,7 +1,7 @@
 import { AuthorizationError, type AuthRequest } from "@cloudflare/workers-oauth-provider";
 import type { Env, AuthProps } from "./env.js";
 import { allowedGoogleEmails } from "./env.js";
-import { constantTimeEqual, randomToken, SecretBox } from "./crypto.js";
+import { randomToken, SecretBox } from "./crypto.js";
 import { D1Store, type GoogleCredentials } from "./d1-store.js";
 import { mcpByResource } from "./mcp-registry.js";
 
@@ -49,26 +49,26 @@ async function beginConsent(request: Request, env: Env): Promise<Response> {
   oauthRequest = { ...oauthRequest, scope: requestedScopes };
   const client = await env.OAUTH_PROVIDER.lookupClient(oauthRequest.clientId);
   if (!client) return new Response("Unknown OAuth client", { status: 400 });
-  const csrf = randomToken();
   const approval = randomToken();
   const { store } = await services(env);
   await store.putPending<ApprovalPayload>("approval", approval, definition.slug, { oauthRequest, clientName: client.clientName ?? "ChatGPT" }, Date.now() + HANDOFF_TTL_MS);
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   const html = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Autorizar ${escapeHtml(definition.title)}</title>
     <style>body{font:16px system-ui;max-width:620px;margin:10vh auto;padding:24px;color:#17202a}button{background:#176b4d;color:white;border:0;border-radius:8px;padding:12px 18px;font-weight:650}li{margin:.5rem 0}.card{border:1px solid #d8dee4;border-radius:14px;padding:24px}</style>
     <div class="card"><h1>Conectar ${escapeHtml(definition.title)}</h1><p><strong>${escapeHtml(client.clientName ?? "ChatGPT")}</strong> solicita usar este MCP con tu cuenta de Google.</p>
     <ul>${requestedScopes.map((scope) => `<li>${scope.endsWith(".write") ? "Crear, modificar y borrar eventos" : "Leer calendarios y eventos"}</li>`).join("")}</ul>
     <p>Los tokens de Google se guardarán cifrados y nunca se entregarán a ChatGPT.</p><form method="post" action="/authorize/approve">
-    <input type="hidden" name="approval" value="${escapeHtml(approval)}"><input type="hidden" name="csrf" value="${escapeHtml(csrf)}"><button type="submit">Continuar con Google</button></form></div></html>`;
-  return new Response(html, { headers: { ...securityHeaders("text/html; charset=utf-8"), "Set-Cookie": `mcp_csrf=${csrf}; HttpOnly; SameSite=Lax; Path=/authorize; Max-Age=600${secure}` } });
+    <input type="hidden" name="approval" value="${escapeHtml(approval)}"><button type="submit">Continuar con Google</button></form></div></html>`;
+  return new Response(html, { headers: securityHeaders("text/html; charset=utf-8") });
 }
 
 async function approveConsent(request: Request, env: Env): Promise<Response> {
   const form = await request.formData();
+  // El token `approval` es un secreto de un solo uso emitido en la página de consentimiento y
+  // guardado cifrado en el servidor; takePending lo consume atómicamente. Eso protege el endpoint
+  // sin depender de una cookie CSRF, que los navegadores con privacidad estricta bloquean en el
+  // POST cross-site que inicia ChatGPT.
   const approval = String(form.get("approval") ?? "");
-  const csrf = String(form.get("csrf") ?? "");
-  const cookie = request.headers.get("Cookie")?.match(/(?:^|;\s*)mcp_csrf=([^;]+)/)?.[1] ?? "";
-  if (!approval || !csrf || !constantTimeEqual(csrf, cookie)) return new Response("Consent form expired", { status: 400 });
+  if (!approval) return new Response("Consent form expired", { status: 400 });
   const { store } = await services(env);
   const pending = await store.takePending<ApprovalPayload>("approval", approval);
   if (!pending) return new Response("Consent form expired", { status: 400 });
@@ -79,7 +79,7 @@ async function approveConsent(request: Request, env: Env): Promise<Response> {
   const redirectUri = `${new URL(request.url).origin}/oauth/google/callback`;
   const google = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   google.search = new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, redirect_uri: redirectUri, response_type: "code", access_type: "offline", prompt: "consent", include_granted_scopes: "true", scope: GOOGLE_SCOPES.join(" "), state }).toString();
-  return new Response(null, { status: 302, headers: { Location: google.toString(), "Set-Cookie": "mcp_csrf=; HttpOnly; SameSite=Lax; Path=/authorize; Max-Age=0" } });
+  return new Response(null, { status: 302, headers: { Location: google.toString() } });
 }
 
 async function finishGoogleAuthorization(request: Request, env: Env): Promise<Response> {
