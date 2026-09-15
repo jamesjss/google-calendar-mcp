@@ -48,7 +48,11 @@ npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put TOKEN_ENCRYPTION_KEY
 ```
 
-Configura tu correo en `ALLOWED_GOOGLE_EMAILS` dentro de `wrangler.jsonc`; admite varios separados por coma. Para uso personal no lo dejes vacío.
+Configura tu correo autorizado también como secreto (no lo pongas en `wrangler.jsonc`, que se publica en el repo público); admite varios separados por coma. Para uso personal no lo dejes vacío:
+
+```bash
+npx wrangler secret put ALLOWED_GOOGLE_EMAILS
+```
 
 No cambies `TOKEN_ENCRYPTION_KEY` después de conectar Google: los tokens existentes dejarían de poder descifrarse. Una rotación requiere descifrar y volver a cifrar los registros.
 

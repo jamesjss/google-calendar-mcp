@@ -20,8 +20,5 @@
       "database_id": "cbf5d8b9-c409-406d-bd04-41a7cef012b1",
       "migrations_dir": "migrations"
     }
-  ],
-  "vars": {
-    "ALLOWED_GOOGLE_EMAILS": ""
-  }
+  ]
 }

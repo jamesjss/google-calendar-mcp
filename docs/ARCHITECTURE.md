@@ -49,7 +49,7 @@ Scopes Google:
 - `calendar.events`, para leer y modificar eventos sin administrar calendarios o ACL.
 - `calendar.calendarlist.readonly`, para localizar calendarios secundarios como **Familiar**.
 
-`ALLOWED_GOOGLE_EMAILS` debe contener la cuenta autorizada en un despliegue personal.
+`ALLOWED_GOOGLE_EMAILS` (secreto de Cloudflare, no variable pública) debe contener la cuenta autorizada en un despliegue personal.
 
 ## Fechas, duplicados y concurrencia
 
