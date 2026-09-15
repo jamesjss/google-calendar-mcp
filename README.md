@@ -1,9 +1,9 @@
 # Plataforma MCP personal en Cloudflare
 
-Worker remoto para conectar servicios propios con ChatGPT web. La primera integración es Google Calendar y vive en una ruta estable:
+Worker remoto para conectar servicios propios con ChatGPT web. La primera integración es Google Calendar y vive en una ruta estable. El despliegue actual es:
 
 ```text
-https://TU-WORKER.workers.dev/mcp/google-calendar
+https://personal-mcp-platform.jaisanrg.workers.dev/mcp/google-calendar
 ```
 
 La base está preparada para incorporar más servidores como rutas hermanas (`/mcp/notion`, `/mcp/home-assistant`, etc.) sin mezclar herramientas, scopes ni credenciales.

@@ -2,20 +2,22 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "personal-mcp-platform",
   "main": "src/worker.ts",
+  "workers_dev": true,
+  "preview_urls": false,
   "compatibility_date": "2026-09-15",
   "compatibility_flags": ["global_fetch_strictly_public"],
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
-      "id": "00000000000000000000000000000000",
-      "preview_id": "00000000000000000000000000000000"
+      "id": "ce9442ce8fe94940927f28a27d034825",
+      "preview_id": "ce9442ce8fe94940927f28a27d034825"
     }
   ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "personal-mcp-platform",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "cbf5d8b9-c409-406d-bd04-41a7cef012b1",
       "migrations_dir": "migrations"
     }
   ],

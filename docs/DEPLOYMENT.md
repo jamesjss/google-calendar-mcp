@@ -8,9 +8,9 @@ Para uso personal de bajo volumen, esta implementación está diseñada para cab
 2. Configura la pantalla de consentimiento OAuth. En uso personal puede estar en modo Testing, con tu correo como test user.
 3. Añade los cuatro scopes de Google descritos en [Arquitectura](./ARCHITECTURE.md#permisos-mínimos).
 4. Crea un OAuth client de tipo **Web application**.
-5. Cuando conozcas la URL final del Worker, añade exactamente:
+5. Para este despliegue, añade exactamente:
 
-   `https://TU-WORKER.TU-SUBDOMINIO.workers.dev/oauth/google/callback`
+   `https://personal-mcp-platform.jaisanrg.workers.dev/oauth/google/callback`
 
 El callback no contiene el slug; la autorización temporal cifrada determina qué MCP inició el flujo.
 
@@ -64,8 +64,8 @@ npm run deploy
 Comprueba:
 
 ```text
-https://TU-WORKER.../healthz
-https://TU-WORKER.../.well-known/oauth-protected-resource/mcp/google-calendar
+https://personal-mcp-platform.jaisanrg.workers.dev/healthz
+https://personal-mcp-platform.jaisanrg.workers.dev/.well-known/oauth-protected-resource/mcp/google-calendar
 ```
 
 La segunda URL debe anunciar como `resource` la URL exacta terminada en `/mcp/google-calendar`.
@@ -75,7 +75,7 @@ La segunda URL debe anunciar como `resource` la URL exacta terminada en `/mcp/go
 1. Activa el modo desarrollador de Apps/Conectores en ChatGPT.
 2. Crea una app personalizada con esta URL MCP:
 
-   `https://TU-WORKER.../mcp/google-calendar`
+   `https://personal-mcp-platform.jaisanrg.workers.dev/mcp/google-calendar`
 
 3. Selecciona OAuth. ChatGPT descubrirá automáticamente los endpoints y pedirá conectar Google.
 4. Acepta la pantalla de consentimiento local y autoriza exactamente la cuenta permitida.
