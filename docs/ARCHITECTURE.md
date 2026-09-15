@@ -32,7 +32,7 @@ El servidor MCP es stateless: se crea por petición y puede ejecutarse en cualqu
 Hay dos relaciones separadas:
 
 1. ChatGPT usa Authorization Code + PKCE contra el Workers OAuth Provider. El proveedor guarda en KV los clientes dinámicos, grants, access tokens y refresh tokens rotatorios.
-2. El usuario ve una pantalla de consentimiento propia y después autoriza Google. La aprobación se protege con un token `approval` aleatorio de un solo uso, emitido en la página y consumido atómicamente en el servidor (`DELETE ... RETURNING`); no se usa cookie CSRF porque el POST de aprobación llega desde un contexto cross-site (ChatGPT) que los navegadores con privacidad estricta bloquearían. El callback guarda los tokens Google cifrados con AES-256-GCM en D1.
+2. El usuario ve una pantalla de consentimiento propia y después autoriza Google. La aprobación se valida con un token `approval` aleatorio emitido en la página; el paso es idempotente (se lee con `peekPending`, sin borrar) porque algunos navegadores reenvían el POST del formulario y un segundo envío debe volver a redirigir a Google en lugar de fallar. No se usa cookie CSRF porque el POST de aprobación llega desde un contexto cross-site (ChatGPT) que los navegadores con privacidad estricta bloquearían. La unicidad estricta se aplica en el callback de Google (`takePending`, `DELETE ... RETURNING`), que guarda los tokens Google cifrados con AES-256-GCM en D1.
 
 ChatGPT nunca recibe credenciales Google. D1 solo guarda ciphertext; la clave vive como secreto `TOKEN_ENCRYPTION_KEY`. Los handoffs de autorización son cifrados, caducan a los diez minutos y se consumen una sola vez mediante `DELETE ... RETURNING`.
 

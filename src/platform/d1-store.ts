@@ -22,6 +22,18 @@ export class D1Store {
       VALUES (?, ?, ?, ?, ?, ?)`).bind(await hashToken(token), kind, mcpSlug, await this.box.encrypt(payload), expiresAt, Date.now()).run();
   }
 
+  // Lee un handoff sin borrarlo. Se usa para el paso de aprobación del consentimiento, que debe
+  // ser idempotente: algunos navegadores reenvían el POST del formulario, y un segundo envío no
+  // debe fallar con "expired" sino volver a emitir la redirección a Google. El registro caduca solo
+  // por TTL (cleanupExpired) y la unicidad real se aplica en el callback de Google con takePending.
+  async peekPending<T>(kind: string, token: string): Promise<{ mcpSlug: string; payload: T } | undefined> {
+    const row = await this.db.prepare(`SELECT mcp_slug, encrypted_payload, expires_at FROM oauth_handoffs
+      WHERE token_hash = ? AND kind = ?`).bind(await hashToken(token), kind)
+      .first<{ mcp_slug: string; encrypted_payload: string; expires_at: number }>();
+    if (!row || row.expires_at <= Date.now()) return undefined;
+    return { mcpSlug: row.mcp_slug, payload: await this.box.decrypt<T>(row.encrypted_payload) };
+  }
+
   async takePending<T>(kind: string, token: string): Promise<{ mcpSlug: string; payload: T } | undefined> {
     const row = await this.db.prepare(`DELETE FROM oauth_handoffs WHERE token_hash = ? AND kind = ?
       RETURNING mcp_slug, encrypted_payload, expires_at`).bind(await hashToken(token), kind)

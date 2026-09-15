@@ -70,7 +70,9 @@ async function approveConsent(request: Request, env: Env): Promise<Response> {
   const approval = String(form.get("approval") ?? "");
   if (!approval) return new Response("Consent form expired", { status: 400 });
   const { store } = await services(env);
-  const pending = await store.takePending<ApprovalPayload>("approval", approval);
+  // peek (no borra) para tolerar reenvíos del POST del formulario: un segundo envío con el mismo
+  // token vuelve a emitir la redirección a Google en lugar de fallar con "expired".
+  const pending = await store.peekPending<ApprovalPayload>("approval", approval);
   if (!pending) return new Response("Consent form expired", { status: 400 });
   const definition = mcpByResource(pending.payload.oauthRequest.resource);
   if (!definition || definition.slug !== pending.mcpSlug) return new Response("Invalid MCP resource", { status: 400 });
