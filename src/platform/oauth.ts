@@ -58,7 +58,12 @@ async function beginConsent(request: Request, env: Env): Promise<Response> {
     <ul>${requestedScopes.map((scope) => `<li>${scope.endsWith(".write") ? "Crear, modificar y borrar eventos" : "Leer calendarios y eventos"}</li>`).join("")}</ul>
     <p>Los tokens de Google se guardarán cifrados y nunca se entregarán a ChatGPT.</p><form method="post" action="/authorize/approve">
     <input type="hidden" name="approval" value="${escapeHtml(approval)}"><button type="submit">Continuar con Google</button></form></div></html>`;
-  return new Response(html, { headers: securityHeaders("text/html; charset=utf-8") });
+  // El POST de este formulario responde con un 302 a accounts.google.com. `form-action` se aplica
+  // también al destino de la redirección, así que hay que permitir el dominio de Google aquí o el
+  // navegador bloquea el salto a Google (el envío llega al servidor pero la página no navega).
+  const headers = securityHeaders("text/html; charset=utf-8");
+  headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://accounts.google.com; base-uri 'none'; frame-ancestors 'none'";
+  return new Response(html, { headers });
 }
 
 async function approveConsent(request: Request, env: Env): Promise<Response> {
