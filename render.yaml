@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: google-calendar-chatgpt-mcp
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_REDIRECT_ORIGINS
+        value: https://chatgpt.com,https://chat.openai.com
+      - key: ALLOWED_GOOGLE_EMAILS
+        sync: false
+      - key: DATABASE_PATH
+        value: /app/data/calendar-mcp.sqlite
+    disk:
+      name: calendar-mcp-data
+      mountPath: /app/data
+      sizeGB: 1
